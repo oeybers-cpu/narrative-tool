@@ -188,6 +188,7 @@
             h1 { font-size:1.6rem; }
         }
     </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -810,123 +811,199 @@ function buildFeedbackText() {
     return lines.join('\n');
 }
 
-// ── DOWNLOAD PDF ───────────────────────────────────────────────────────────────────────────
+// ── DOWNLOAD PDF (jsPDF direct download) ─────────────────────────────────────────────
 function downloadPDF() {
     if (!sessions.length) { showToast('No feedback to download yet.'); return; }
+    if (typeof window.jspdf === 'undefined') {
+        showToast('PDF library loading — please try again in a moment.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
     const d = sessions[0].data;
     const ts = document.getElementById('fb-timestamp')?.textContent || new Date().toLocaleString('en-ZA');
     const sub = (d.theme?.mark ?? 0) + (d.structure?.mark ?? 0) + (d.referencing?.mark ?? 0);
+    const clean = (txt) => String(txt || '').replace(/[#*`_~>|\\]/g, '').trim();
 
-    // Build clean HTML for the PDF window
-    const s = (txt) => String(txt || '').replace(/[#*`_~>|\\]/g, '').trim();
+    const PAGE_W = 210;
+    const MARGIN = 18;
+    const CONTENT_W = PAGE_W - MARGIN * 2;
+    const PAGE_H = 297;
+    const BOTTOM_MARGIN = 20;
+    let y = MARGIN;
 
-    const criterionBlock = (num, label, sec, max, lecturerOnly, alignNote) => {
-        if (lecturerOnly) {
-            return `
-                <div class="section">
-                    <div class="section-header">
-                        <span class="section-num">${num}</span>
-                        <span class="section-title">${label}</span>
-                        <span class="mark-badge mark-blank">_____ / ${max} &nbsp;(Lecturer)</span>
-                    </div>
-                    ${alignNote ? `<div class="alignment-note">${s(alignNote)}</div>` : ''}
-                </div>`;
+    // Colours
+    const DARK  = [11, 31, 51];
+    const ORANGE= [230, 126, 34];
+    const GREY  = [95, 107, 122];
+    const GREEN = [46, 125, 82];
+    const RED   = [192, 57, 43];
+    const WHITE = [255, 255, 255];
+    const LIGHT = [240, 244, 248];
+
+    const checkPage = (needed = 10) => {
+        if (y + needed > PAGE_H - BOTTOM_MARGIN) {
+            doc.addPage();
+            y = MARGIN;
         }
-        const mark = sec?.mark ?? '—';
-        const pct = typeof sec?.mark === 'number' ? sec.mark / max : -1;
-        const cls = pct >= 0.8 ? 'mark-green' : pct >= 0.6 ? 'mark-orange' : pct >= 0 ? 'mark-red' : 'mark-blank';
-        const comments = (sec?.comments || []).map(c => `<li>${s(c)}</li>`).join('');
-        const tip = sec?.tip ? `<div class="tip"><strong>Tip:</strong> ${s(sec.tip)}</div>` : '';
-        return `
-            <div class="section">
-                <div class="section-header">
-                    <span class="section-num">${num}</span>
-                    <span class="section-title">${label}</span>
-                    <span class="mark-badge ${cls}">${mark} / ${max}</span>
-                </div>
-                <ul class="comments">${comments}</ul>
-                ${tip}
-            </div>`;
     };
 
-    const tips = (d.overallTips || []).map((t, i) =>
-        `<li><span class="tip-num">${i+1}</span>${s(t)}</li>`
-    ).join('');
+    const setFont = (style, size, color) => {
+        doc.setFont('helvetica', style);
+        doc.setFontSize(size);
+        if (color) doc.setTextColor(...color);
+    };
 
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>ALL 110 Feedback Report</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Inter',sans-serif; background:#fff; color:#1a2a3a; padding:36px 48px; font-size:13px; line-height:1.7; }
-  .header { border-bottom:3px solid #e67e22; padding-bottom:14px; margin-bottom:22px; }
-  .header h1 { font-size:20px; font-weight:700; color:#0b1f33; }
-  .header p { color:#5f6b7a; font-size:12px; margin-top:4px; }
-  .section { border:1px solid #e0eaf4; border-radius:10px; padding:14px 18px; margin-bottom:14px; background:#fff; }
-  .section-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-  .section-num { background:#e0eaf4; border-radius:50%; width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#0b1f33; flex-shrink:0; }
-  .section-title { font-weight:700; color:#0b1f33; font-size:14px; flex:1; }
-  .mark-badge { padding:4px 12px; border-radius:20px; font-weight:700; font-size:12px; white-space:nowrap; }
-  .mark-green  { background:#e6f4ea; color:#2e7d52; border:1.5px solid #2e7d52; }
-  .mark-orange { background:#fff3e0; color:#c9600f; border:1.5px solid #e67e22; }
-  .mark-red    { background:#fde8e8; color:#c0392b; border:1.5px solid #c0392b; }
-  .mark-blank  { background:#f0f4f8; color:#6b7a8d; border:1.5px dashed #a0b0c0; font-style:italic; }
-  .comments { list-style:none; padding:0; margin:0 0 8px; }
-  .comments li { padding:4px 0 4px 20px; position:relative; color:#2c3e50; }
-  .comments li::before { content:"\u2713"; position:absolute; left:2px; color:#2e7d52; font-weight:700; }
-  .tip { background:#fffbeb; border-left:3px solid #d97706; padding:8px 12px; border-radius:6px; font-size:12px; color:#6b4c00; margin-top:6px; }
-  .alignment-note { background:#f3e8ff; border-left:3px solid #7c3aed; padding:8px 12px; border-radius:6px; font-size:12px; color:#4c1d95; margin-top:6px; }
-  .totals { background:#0b1f33; color:white; border-radius:10px; padding:14px 18px; margin-bottom:14px; }
-  .total-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.08); font-size:12.5px; color:#7a9ab8; }
-  .total-row:last-child { border-bottom:none; }
-  .total-row.bold { color:white; font-weight:700; font-size:13.5px; }
-  .total-val { font-weight:700; color:#e67e22; }
-  .total-val.blank { color:#5f6b7a; font-style:italic; }
-  .tips-box { background:#fffbeb; border:1.5px solid #fbbf24; border-radius:10px; padding:14px 18px; margin-bottom:14px; }
-  .tips-box h4 { color:#92400e; font-size:13px; font-weight:700; margin-bottom:10px; }
-  .tips-list { list-style:none; padding:0; }
-  .tips-list li { display:flex; gap:10px; padding:5px 0; color:#6b4c00; font-size:12.5px; border-bottom:1px solid #fde68a; }
-  .tips-list li:last-child { border-bottom:none; }
-  .tip-num { background:#d97706; color:white; border-radius:50%; width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
-  .footer { margin-top:20px; padding-top:12px; border-top:1px solid #e0eaf4; font-size:11px; color:#9aabb8; text-align:center; }
-  @media print { body { padding:20px 30px; } }
-</style>
-</head>
-<body>
-<div class="header">
-  <h1>ALL 110 — GenAI Visual Narrative Feedback Report</h1>
-  <p>Assignment 1 &nbsp;·&nbsp; ${s(ts)}</p>
-</div>
+    const wrappedText = (text, x, width, lineHeight) => {
+        const lines = doc.splitTextToSize(clean(text), width);
+        lines.forEach(line => {
+            checkPage(lineHeight + 2);
+            doc.text(line, x, y);
+            y += lineHeight;
+        });
+        return lines.length;
+    };
 
-${criterionBlock(1, 'Theme', d.theme, 5, false, null)}
-${criterionBlock(2, 'GenAI Image &amp; Translanguaging', null, 5, true, d.imageTranslanguaging?.alignmentComment)}
-${criterionBlock(3, 'Structure &amp; Organisation', d.structure, 5, false, null)}
-${criterionBlock(4, 'Referencing &amp; Editing', d.referencing, 5, false, null)}
+    // ── HEADER ──
+    doc.setFillColor(...DARK);
+    doc.rect(0, 0, PAGE_W, 28, 'F');
+    setFont('bold', 16, WHITE);
+    doc.text('ALL 110 — GenAI Visual Narrative Feedback', MARGIN, 12);
+    setFont('normal', 9, [122, 154, 184]);
+    doc.text('Assignment 1  ·  ' + clean(ts), MARGIN, 20);
+    doc.setDrawColor(...ORANGE);
+    doc.setLineWidth(0.8);
+    doc.line(0, 28, PAGE_W, 28);
+    y = 36;
 
-<div class="totals">
-  <div class="total-row"><span>Theme</span><span class="total-val">${d.theme?.mark ?? '—'} / 5</span></div>
-  <div class="total-row"><span>Structure &amp; Organisation</span><span class="total-val">${d.structure?.mark ?? '—'} / 5</span></div>
-  <div class="total-row"><span>Referencing &amp; Editing</span><span class="total-val">${d.referencing?.mark ?? '—'} / 5</span></div>
-  <div class="total-row bold"><span>AI-Assessed Subtotal</span><span class="total-val">${sub} / 15</span></div>
-  <div class="total-row"><span>GenAI Image &amp; Translanguaging (Lecturer adds)</span><span class="total-val blank">_____ / 5</span></div>
-  <div class="total-row bold"><span>FINAL MARK</span><span class="total-val blank">_____ / 20</span></div>
-</div>
+    // ── CRITERION BLOCK ──
+    const drawCriterion = (num, label, sec, max, lecturerOnly, alignNote) => {
+        const mark = lecturerOnly ? null : (sec?.mark ?? null);
+        const markStr = lecturerOnly ? '_____ / ' + max + ' (Lecturer)' : (mark !== null ? mark + ' / ' + max : '— / ' + max);
+        const pct = (mark !== null && !lecturerOnly) ? mark / max : -1;
+        const markColor = pct >= 0.8 ? GREEN : pct >= 0.6 ? ORANGE : pct >= 0 ? RED : GREY;
 
-${tips ? `<div class="tips-box"><h4>Tips to Improve Your Draft</h4><ul class="tips-list">${tips}</ul></div>` : ''}
+        checkPage(20);
+        // Section box top
+        doc.setFillColor(...LIGHT);
+        doc.setDrawColor(224, 234, 244);
+        doc.setLineWidth(0.3);
+        const boxStartY = y;
 
-<div class="footer">Generated by the ALL 110 GenAI Visual Narrative Feedback Tool &nbsp;·&nbsp; https://oeybers-cpu.github.io/narrative-tool/</div>
+        // Header row
+        setFont('bold', 11, DARK);
+        doc.text(num + '.  ' + label, MARGIN, y + 6);
+        setFont('bold', 10, markColor);
+        doc.text(markStr, PAGE_W - MARGIN, y + 6, { align: 'right' });
+        y += 10;
+        doc.setDrawColor(224, 234, 244);
+        doc.setLineWidth(0.2);
+        doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+        y += 4;
 
-<script>window.onload = function() { window.print(); }<\/script>
-</body></html>`;
+        if (lecturerOnly && alignNote) {
+            setFont('italic', 9, [76, 29, 149]);
+            wrappedText(alignNote, MARGIN + 3, CONTENT_W - 6, 5);
+            y += 2;
+        } else if (!lecturerOnly && sec) {
+            setFont('normal', 9.5, [44, 62, 80]);
+            (sec.comments || []).forEach(c => {
+                checkPage(8);
+                doc.setTextColor(46, 125, 82);
+                doc.text('✓', MARGIN + 2, y);
+                doc.setTextColor(44, 62, 80);
+                const lines = doc.splitTextToSize(clean(c), CONTENT_W - 10);
+                lines.forEach((line, i) => {
+                    checkPage(5);
+                    doc.text(line, MARGIN + 7, y);
+                    y += 5;
+                });
+            });
+            if (sec.tip) {
+                checkPage(10);
+                doc.setFillColor(255, 251, 235);
+                doc.setDrawColor(217, 119, 6);
+                doc.setLineWidth(0.4);
+                const tipLines = doc.splitTextToSize('Tip: ' + clean(sec.tip), CONTENT_W - 10);
+                const tipH = tipLines.length * 5 + 6;
+                doc.rect(MARGIN, y, CONTENT_W, tipH, 'FD');
+                doc.line(MARGIN, y, MARGIN, y + tipH);
+                setFont('normal', 9, [107, 76, 0]);
+                tipLines.forEach((line, i) => {
+                    doc.text(line, MARGIN + 4, y + 4 + i * 5);
+                });
+                y += tipH + 3;
+            }
+        }
+        y += 4;
+        doc.setDrawColor(224, 234, 244);
+        doc.setLineWidth(0.3);
+        doc.rect(MARGIN - 2, boxStartY - 2, CONTENT_W + 4, y - boxStartY + 2, 'S');
+        y += 4;
+    };
 
-    const win = window.open('', '_blank', 'width=800,height=900');
-    if (!win) { showToast('Please allow pop-ups to download the PDF.'); return; }
-    win.document.write(html);
-    win.document.close();
-    showToast('✓ PDF ready — use Print → Save as PDF');
+    drawCriterion(1, 'Theme', d.theme, 5, false, null);
+    drawCriterion(2, 'GenAI Image & Translanguaging', null, 5, true, d.imageTranslanguaging?.alignmentComment);
+    drawCriterion(3, 'Structure & Organisation', d.structure, 5, false, null);
+    drawCriterion(4, 'Referencing & Editing', d.referencing, 5, false, null);
+
+    // ── TOTALS ──
+    checkPage(40);
+    doc.setFillColor(...DARK);
+    doc.roundedRect(MARGIN - 2, y, CONTENT_W + 4, 44, 3, 3, 'F');
+    const totRows = [
+        ['Theme', (d.theme?.mark ?? '—') + ' / 5', false],
+        ['Structure & Organisation', (d.structure?.mark ?? '—') + ' / 5', false],
+        ['Referencing & Editing', (d.referencing?.mark ?? '—') + ' / 5', false],
+        ['AI-Assessed Subtotal', sub + ' / 15', true],
+        ['GenAI Image & Translanguaging (Lecturer)', '_____ / 5', false],
+        ['FINAL MARK', '_____ / 20', true],
+    ];
+    let ty = y + 7;
+    totRows.forEach(([label, val, bold]) => {
+        setFont(bold ? 'bold' : 'normal', bold ? 10 : 9, bold ? WHITE : [122, 154, 184]);
+        doc.text(label, MARGIN + 2, ty);
+        doc.setTextColor(...ORANGE);
+        doc.setFont('helvetica', 'bold');
+        doc.text(val, PAGE_W - MARGIN - 2, ty, { align: 'right' });
+        ty += 7;
+    });
+    y += 48;
+
+    // ── OVERALL TIPS ──
+    if (d.overallTips && d.overallTips.length) {
+        checkPage(16);
+        setFont('bold', 10, [146, 64, 14]);
+        doc.text('Tips to Improve Your Draft', MARGIN, y);
+        y += 6;
+        d.overallTips.forEach((tip, i) => {
+            checkPage(8);
+            setFont('bold', 9, [217, 119, 6]);
+            doc.text((i + 1) + '.', MARGIN + 2, y);
+            setFont('normal', 9, [107, 76, 0]);
+            const lines = doc.splitTextToSize(clean(tip), CONTENT_W - 10);
+            lines.forEach(line => {
+                checkPage(5);
+                doc.text(line, MARGIN + 8, y);
+                y += 5;
+            });
+            y += 2;
+        });
+    }
+
+    // ── FOOTER ──
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        setFont('normal', 8, GREY);
+        doc.text('ALL 110 GenAI Visual Narrative Feedback Tool  ·  https://oeybers-cpu.github.io/narrative-tool/', MARGIN, PAGE_H - 8);
+        doc.text('Page ' + p + ' of ' + totalPages, PAGE_W - MARGIN, PAGE_H - 8, { align: 'right' });
+    }
+
+    doc.save('ALL110-Feedback.pdf');
+    showToast('✓ ALL110-Feedback.pdf downloaded!');
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────────────────
