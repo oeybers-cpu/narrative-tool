@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALL 110 – GenAI Visual Narrative Assessment Tool</title>
+    <style>
+        html, body { margin:0; padding:0; background:#f0f4f8; }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Roboto,system-ui,sans-serif; }
+
+        .container {
+            display:flex; width:100%; min-height:100vh;
+            background:white; box-shadow:0 20px 40px rgba(0,20,40,0.15); overflow:hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width:250px; background:#0b1f33; color:white;
+            display:flex; flex-direction:column; padding:28px 0 20px;
+            border-right:4px solid #e67e22; flex-shrink:0;
+        }
+        .sidebar-title { text-align:center; font-size:1.4rem; font-weight:600; color:white; padding:0 16px 10px; }
+        .sidebar-sub   { text-align:center; color:#e67e22; font-size:0.82rem; padding:0 16px 20px; border-bottom:2px solid #e67e22; line-height:1.5; }
+        .tabs { flex:1; display:flex; flex-direction:column; gap:4px; padding:16px 10px 0; }
+        .tab {
+            background:transparent; border:none; color:#c0cfe0; text-align:left;
+            padding:12px 16px; font-size:0.95rem; font-weight:500;
+            border-left:4px solid transparent; cursor:pointer; transition:all 0.2s;
+            border-radius:0 30px 30px 0;
+        }
+        .tab:hover  { background:rgba(255,255,255,0.07); border-left-color:#e67e22; color:white; }
+        .tab.active { background:rgba(230,126,34,0.15); border-left-color:#e67e22; color:white; font-weight:700; }
+        .sidebar-footer { text-align:center; color:#7a9ab8; font-size:0.8rem; padding:16px 12px 0; border-top:1px solid #1e3a55; margin-top:auto; line-height:1.6; }
+
+        /* MAIN */
+        .main { flex:1; background:#f7fafd; padding:32px 40px; overflow-y:auto; min-width:0; }
+        .page { display:none; }
+        .page.active { display:block; animation:fadeIn 0.25s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+        h1 { color:#0b1f33; font-size:2rem; font-weight:700; margin-bottom:4px; }
+        h2 { color:#e67e22; font-size:1.2rem; font-weight:500; border-bottom:2px solid #e67e22; padding-bottom:8px; margin-bottom:20px; }
+        p  { color:#2c3e50; line-height:1.7; margin-bottom:10px; }
+
+        /* CARDS */
+        .card { background:white; border-radius:16px; padding:20px 24px; margin:14px 0; box-shadow:0 3px 12px rgba(0,0,0,0.05); border:1px solid #e0eaf4; }
+        .card-blue   { background:#e8f2fe; border-left:6px solid #2b6cb0; }
+        .card-orange { background:#fff3e0; border-left:6px solid #e67e22; }
+        .card-green  { background:#e6f4ea; border-left:6px solid #2e7d52; }
+        .card-purple { background:#f3e8ff; border-left:6px solid #7c3aed; }
+        .card-red    { background:#fde8e8; border-left:6px solid #c0392b; }
+        .card-yellow { background:#fffbeb; border-left:6px solid #d97706; }
+
+        /* TOOL */
+        label.field-label { display:block; font-weight:700; color:#0b1f33; margin-bottom:6px; font-size:1rem; }
+        .field-hint { font-size:0.87rem; color:#5f6b7a; margin-bottom:10px; line-height:1.5; }
+        textarea {
+            width:100%; padding:16px; border:2px solid #c8d8e8; border-radius:12px;
+            font-size:0.97rem; line-height:1.75; color:#1a2a3a; background:white;
+            resize:vertical; transition:border-color 0.2s;
+            font-family:'Segoe UI',Roboto,system-ui,sans-serif;
+        }
+        textarea:focus { outline:none; border-color:#e67e22; }
+        textarea::placeholder { color:#a0b0c0; }
+        .word-count { text-align:right; font-size:0.85rem; color:#6b7a8d; margin-top:5px; }
+        .word-count.good { color:#2e7d52; font-weight:600; }
+        .word-count.near { color:#d97706; font-weight:600; }
+        .word-count.over { color:#c0392b; font-weight:600; }
+
+        /* BUTTONS */
+        .btn-row { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; align-items:center; }
+        .btn {
+            border:none; padding:12px 28px; border-radius:40px; font-weight:700;
+            font-size:0.97rem; cursor:pointer; transition:all 0.15s;
+        }
+        .btn-primary { background:#e67e22; color:white; box-shadow:0 4px 12px rgba(230,126,34,0.3); }
+        .btn-primary:hover:not(:disabled) { background:#c9600f; transform:translateY(-2px); }
+        .btn-primary:disabled { background:#a0b0c0; cursor:not-allowed; box-shadow:none; transform:none; }
+        .btn-dark   { background:#0b1f33; color:white; }
+        .btn-dark:hover { background:#123b5e; transform:translateY(-2px); }
+        .btn-ghost  { background:transparent; color:#5f6b7a; border:2px solid #c8d8e8; padding:10px 20px; border-radius:40px; font-weight:600; font-size:0.9rem; cursor:pointer; transition:all 0.15s; }
+        .btn-ghost:hover { border-color:#e67e22; color:#e67e22; }
+
+        .spinner { display:inline-block; width:16px; height:16px; border:3px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:7px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ERROR */
+        #error-box { display:none; margin-top:14px; }
+
+        /* FEEDBACK FORM */
+        #feedback-area { display:none; margin-top:28px; }
+
+        .fb-header { background:#0b1f33; color:white; border-radius:16px 16px 0 0; padding:18px 26px; }
+        .fb-header h3 { color:white; font-size:1.3rem; margin-bottom:3px; }
+        .fb-header p  { color:#7a9ab8; font-size:0.85rem; margin:0; }
+
+        .fb-body { border:2px solid #0b1f33; border-top:none; border-radius:0 0 16px 16px; overflow:hidden; }
+
+        .fb-section { padding:18px 26px; border-bottom:1px solid #e0eaf4; }
+        .fb-section:last-child { border-bottom:none; }
+        .fb-section.lecturer-section { background:#f9f0ff; }
+
+        .fb-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+        .fb-section-name { font-size:1.05rem; font-weight:700; color:#0b1f33; }
+        .fb-section-num  { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; background:#e0eaf4; border-radius:50%; font-size:0.8rem; font-weight:700; color:#0b1f33; margin-right:8px; flex-shrink:0; }
+
+        .mark-badge { display:inline-block; padding:5px 14px; border-radius:40px; font-weight:700; font-size:0.92rem; white-space:nowrap; }
+        .mark-green  { background:#e6f4ea; color:#2e7d52; border:2px solid #2e7d52; }
+        .mark-orange { background:#fff3e0; color:#c9600f; border:2px solid #e67e22; }
+        .mark-red    { background:#fde8e8; color:#c0392b; border:2px solid #c0392b; }
+        .mark-blank  { background:#f0f4f8; color:#6b7a8d; border:2px dashed #a0b0c0; font-style:italic; }
+
+        .fb-comments { list-style:none; padding:0; margin:0 0 10px; }
+        .fb-comments li { padding:5px 0 5px 22px; position:relative; color:#2c3e50; font-size:0.95rem; line-height:1.6; }
+        .fb-comments li::before { content:"✓"; position:absolute; left:2px; color:#2e7d52; font-weight:700; }
+
+        .fb-tip { display:flex; align-items:flex-start; gap:8px; background:#fffbeb; border-left:4px solid #d97706; padding:10px 14px; border-radius:8px; margin-top:6px; }
+        .fb-tip-icon { font-size:1rem; flex-shrink:0; }
+        .fb-tip-text { font-size:0.9rem; color:#6b4c00; line-height:1.6; }
+        .fb-tip-text strong { color:#92400e; }
+
+        .fb-alignment-note { background:#f3e8ff; border-left:4px solid #7c3aed; padding:12px 16px; border-radius:8px; font-size:0.92rem; color:#4c1d95; line-height:1.6; margin-top:8px; }
+
+        /* TOTALS */
+        .fb-totals { background:#0b1f33; padding:18px 26px; border-radius:0 0 14px 14px; }
+        .fb-total-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.08); color:#7a9ab8; font-size:0.93rem; }
+        .fb-total-row:last-child { border-bottom:none; }
+        .fb-total-row.bold { color:white; font-weight:700; font-size:1.05rem; }
+        .fb-val { font-weight:700; color:#e67e22; }
+        .fb-val.blank { color:#5f6b7a; font-style:italic; }
+
+        /* TIPS */
+        .tips-section { background:#fffbeb; border:2px solid #fbbf24; border-radius:16px; padding:20px 24px; margin-top:14px; }
+        .tips-section h4 { color:#92400e; font-size:1rem; font-weight:700; margin-bottom:12px; }
+        .tips-list { list-style:none; padding:0; }
+        .tips-list li { display:flex; align-items:flex-start; gap:10px; padding:6px 0; color:#6b4c00; font-size:0.93rem; line-height:1.6; border-bottom:1px solid #fde68a; }
+        .tips-list li:last-child { border-bottom:none; }
+        .tips-list li .tip-num { background:#d97706; color:white; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; flex-shrink:0; }
+
+        /* NOTE BOX */
+        .note-box { margin-top:14px; background:#fff3e0; border-left:5px solid #e67e22; padding:14px 18px; border-radius:10px; font-size:0.88rem; color:#6b3a0f; line-height:1.7; }
+        .note-box strong { color:#c9600f; }
+
+        /* RUBRIC TABLE */
+        table { width:100%; border-collapse:collapse; margin:14px 0; background:white; border-radius:12px; overflow:hidden; box-shadow:0 3px 10px rgba(0,0,0,0.04); }
+        th { background:#0b1f33; color:white; font-weight:600; padding:12px 14px; text-align:left; font-size:0.95rem; }
+        td { padding:12px 14px; border-bottom:1px solid #e0eaf4; color:#2c3e50; font-size:0.93rem; vertical-align:top; }
+        tr:last-child td { border-bottom:none; }
+        .total-row td { background:#f0f4f8; font-weight:700; color:#0b1f33; }
+
+        /* ALIGNMENT */
+        .align-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:14px 0; }
+        .align-box { background:white; border-radius:14px; padding:18px; border:2px solid #e0eaf4; }
+        .align-box.orange-top { border-top:4px solid #e67e22; }
+        .align-box.blue-top   { border-top:4px solid #2b6cb0; }
+        .check-list, .cross-list { list-style:none; padding:0; }
+        .check-list li, .cross-list li { padding:5px 0; font-size:0.92rem; color:#2c3e50; display:flex; align-items:flex-start; gap:8px; }
+        .check-list li::before { content:"✓"; color:#2e7d52; font-weight:700; flex-shrink:0; }
+        .cross-list li::before { content:"✗"; color:#c0392b; font-weight:700; flex-shrink:0; }
+
+        /* HISTORY */
+        .history-item { border:1px solid #d0ddee; border-radius:12px; padding:14px 18px; margin-bottom:10px; background:white; }
+        .history-item summary { cursor:pointer; font-weight:600; color:#0b1f33; font-size:0.93rem; list-style:none; display:flex; justify-content:space-between; }
+        .history-item summary::-webkit-details-marker { display:none; }
+        .history-body { margin-top:12px; padding-top:12px; border-top:1px solid #e0eaf4; font-size:0.9rem; color:#2c3e50; line-height:1.7; white-space:pre-wrap; }
+
+        /* NAV */
+        .nav-row { display:flex; justify-content:space-between; margin-top:32px; padding-top:20px; border-top:2px solid #e0eaf4; }
+
+        @media (max-width:700px) {
+            .container { flex-direction:column; }
+            .sidebar { width:100%; border-right:none; border-bottom:4px solid #e67e22; }
+            .tabs { flex-direction:row; overflow-x:auto; padding:10px; gap:6px; }
+            .tab { border-left:none; border-bottom:3px solid transparent; border-radius:8px; white-space:nowrap; padding:10px 14px; }
+            .tab.active { border-bottom-color:#e67e22; background:rgba(230,126,34,0.12); }
+            .main { padding:20px 16px; }
+            .align-grid { grid-template-columns:1fr; }
+            h1 { font-size:1.6rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-title">✦ ALL 110</div>
+        <div class="sidebar-sub">GenAI Visual Narrative<br>Assignment 1 · Feedback Tool</div>
+        <div class="tabs">
+            <button class="tab active" data-page="submit">📝 Submit Draft</button>
+            <button class="tab" data-page="rubric">📋 Rubric Overview</button>
+            <button class="tab" data-page="alignment">🔗 Image-Text Alignment</button>
+            <button class="tab" data-page="history">🕐 Feedback History</button>
+        </div>
+        <div class="sidebar-footer">Powered by OpenAI GPT-4o<br>Assignment 1 · 20 marks</div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" id="main-content">
+
+        <!-- PAGE 1: SUBMIT DRAFT -->
+        <div class="page active" id="page-submit">
+            <h1>GenAI Visual Narrative</h1>
+            <h2>Submit your draft for AI feedback</h2>
+
+            <div class="card card-blue" style="margin-bottom:18px;">
+                <p style="margin:0;font-size:0.95rem;">
+                    <strong>How to use:</strong> Paste your full draft below — include your title, narrative (~500 words), the exact GenAI prompt you used (in English + your home language), your reference list in Harvard style, and your AI declaration. Then click <strong>Get Feedback</strong>.
+                </p>
+            </div>
+
+            <label class="field-label" for="draft-text">Paste your full draft here:</label>
+            <p class="field-hint">Required sections: Title · Introduction · Image &amp; Prompt · Narrative · Conclusion · Reference List · AI Declaration</p>
+
+            <textarea id="draft-text" rows="18"
+                placeholder="Paste your full draft here…
+
+Expected structure:
+Title: …
+
+Introduction
+[Opening paragraph introducing your theme]
+
+Image & Prompt
+[Your exact GenAI prompt — include both English and your home language]
+[Brief description of your image and why you chose it]
+
+Narrative
+[Your reflective narrative — approximately 500 words]
+
+Conclusion
+[Closing paragraph]
+
+Reference List
+[Harvard-style references, alphabetical order]
+
+AI Declaration
+[How you used AI in this assignment]"
+                oninput="updateWordCount()"></textarea>
+
+            <div class="word-count" id="word-count">0 words</div>
+
+            <div class="btn-row">
+                <button class="btn btn-primary" id="submit-btn" onclick="submitDraft()">✦ Get Feedback</button>
+                <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+            </div>
+
+            <div id="error-box" class="card card-red" style="margin-top:14px;">
+                <p id="error-text" style="margin:0;font-size:0.93rem;"></p>
+            </div>
+
+            <!-- STRUCTURED FEEDBACK FORM -->
+            <div id="feedback-area">
+
+                <div class="fb-header">
+                    <h3>Assessment Feedback — ALL 110 Assignment 1</h3>
+                    <p id="fb-timestamp"></p>
+                </div>
+
+                <div class="fb-body">
+
+                    <!-- Criterion 1: Theme -->
+                    <div class="fb-section">
+                        <div class="fb-row">
+                            <span class="fb-section-name">
+                                <span class="fb-section-num">1</span>Theme
+                            </span>
+                            <span class="mark-badge mark-orange" id="mark-theme">— / 5</span>
+                        </div>
+                        <ul class="fb-comments" id="comments-theme">
+                            <li style="color:#a0b0c0;font-style:italic;">Analysing your draft…</li>
+                        </ul>
+                        <div class="fb-tip" id="tip-theme" style="display:none;">
+                            <span class="fb-tip-icon">💡</span>
+                            <span class="fb-tip-text"><strong>Tip: </strong><span id="tip-theme-text"></span></span>
+                        </div>
+                    </div>
+
+                    <!-- Criterion 2: GenAI Image & Translanguaging (Lecturer) -->
+                    <div class="fb-section lecturer-section">
+                        <div class="fb-row">
+                            <span class="fb-section-name">
+                                <span class="fb-section-num">2</span>GenAI Image &amp; Translanguaging
+                            </span>
+                            <span class="mark-badge mark-blank">_____ / 5 &nbsp;(Lecturer)</span>
+                        </div>
+                        <ul class="fb-comments">
+                            <li>This section is assessed by your lecturer after reviewing your submitted GenAI image.</li>
+                            <li>Your lecturer will evaluate: image quality, prompt intentionality, translanguaging use, and visual-textual alignment.</li>
+                        </ul>
+                        <div class="fb-alignment-note" id="alignment-comment">
+                            <em style="color:#7c3aed;">Alignment note loading…</em>
+                        </div>
+                    </div>
+
+                    <!-- Criterion 3: Structure & Organisation -->
+                    <div class="fb-section">
+                        <div class="fb-row">
+                            <span class="fb-section-name">
+                                <span class="fb-section-num">3</span>Structure &amp; Organisation
+                            </span>
+                            <span class="mark-badge mark-orange" id="mark-structure">— / 5</span>
+                        </div>
+                        <ul class="fb-comments" id="comments-structure">
+                            <li style="color:#a0b0c0;font-style:italic;">Analysing your draft…</li>
+                        </ul>
+                        <div class="fb-tip" id="tip-structure" style="display:none;">
+                            <span class="fb-tip-icon">💡</span>
+                            <span class="fb-tip-text"><strong>Tip: </strong><span id="tip-structure-text"></span></span>
+                        </div>
+                    </div>
+
+                    <!-- Criterion 4: Referencing & Editing -->
+                    <div class="fb-section">
+                        <div class="fb-row">
+                            <span class="fb-section-name">
+                                <span class="fb-section-num">4</span>Referencing &amp; Editing
+                            </span>
+                            <span class="mark-badge mark-orange" id="mark-referencing">— / 5</span>
+                        </div>
+                        <ul class="fb-comments" id="comments-referencing">
+                            <li style="color:#a0b0c0;font-style:italic;">Analysing your draft…</li>
+                        </ul>
+                        <div class="fb-tip" id="tip-referencing" style="display:none;">
+                            <span class="fb-tip-icon">💡</span>
+                            <span class="fb-tip-text"><strong>Tip: </strong><span id="tip-referencing-text"></span></span>
+                        </div>
+                    </div>
+
+                </div><!-- /fb-body -->
+
+                <!-- Totals -->
+                <div class="fb-totals">
+                    <div class="fb-total-row">
+                        <span>Theme</span>
+                        <span class="fb-val" id="tot-theme">—</span>
+                    </div>
+                    <div class="fb-total-row">
+                        <span>Structure &amp; Organisation</span>
+                        <span class="fb-val" id="tot-structure">—</span>
+                    </div>
+                    <div class="fb-total-row">
+                        <span>Referencing &amp; Editing</span>
+                        <span class="fb-val" id="tot-referencing">—</span>
+                    </div>
+                    <div class="fb-total-row bold">
+                        <span>AI-assessed subtotal</span>
+                        <span class="fb-val" id="tot-subtotal">— / 15</span>
+                    </div>
+                    <div class="fb-total-row">
+                        <span>GenAI Image &amp; Translanguaging (Lecturer adds)</span>
+                        <span class="fb-val blank">_____ / 5</span>
+                    </div>
+                    <div class="fb-total-row bold">
+                        <span>FINAL MARK</span>
+                        <span class="fb-val blank">_____ / 20</span>
+                    </div>
+                </div>
+
+                <!-- Tips for improvement -->
+                <div class="tips-section" id="tips-section" style="display:none;">
+                    <h4>💡 Tips to Improve Your Draft</h4>
+                    <ul class="tips-list" id="tips-list"></ul>
+                </div>
+
+                <div class="btn-row" style="margin:14px 0 4px;">
+                    <button class="btn btn-dark" onclick="copyFeedback()">📋 Copy Feedback</button>
+                    <button class="btn btn-ghost" onclick="clearAll()">Start New Draft</button>
+                </div>
+
+            </div><!-- /feedback-area -->
+        </div><!-- /page-submit -->
+
+        <!-- PAGE 2: RUBRIC -->
+        <div class="page" id="page-rubric">
+            <h1>Rubric Overview</h1>
+            <h2>Peer Assessment Form — 20 marks total</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Criterion</th>
+                        <th>What to Look For</th>
+                        <th style="width:100px;text-align:center;">Marks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1</strong></td>
+                        <td><strong style="color:#c9600f;">Theme</strong></td>
+                        <td>Does the narrative clearly focus on ONE theme from the assignment? Is the theme explained clearly and effectively?</td>
+                        <td style="text-align:center;"><strong>5</strong><br><small style="color:#2e7d52;">AI feedback</small></td>
+                    </tr>
+                    <tr>
+                        <td><strong>2</strong></td>
+                        <td><strong style="color:#7c3aed;">GenAI Image &amp; Translanguaging</strong></td>
+                        <td>Is the GenAI image clearly connected to the narrative? Do the image and writing support each other? Is translanguaging (English + L1) used correctly in the prompt?</td>
+                        <td style="text-align:center;"><strong>5</strong><br><small style="color:#7c3aed;">Lecturer only</small></td>
+                    </tr>
+                    <tr>
+                        <td><strong>3</strong></td>
+                        <td><strong style="color:#2b6cb0;">Structure &amp; Organisation</strong></td>
+                        <td>Are correct headings used? (Introduction, Image &amp; Prompt, Narrative, Conclusion, Reference List, AI Declaration). Is the work easy to follow and logically organised?</td>
+                        <td style="text-align:center;"><strong>5</strong><br><small style="color:#2e7d52;">AI feedback</small></td>
+                    </tr>
+                    <tr>
+                        <td><strong>4</strong></td>
+                        <td><strong style="color:#2e7d52;">Referencing &amp; Editing</strong></td>
+                        <td>Are in-text citations correct? Is the reference list in Harvard style and alphabetical? Is the work properly edited (grammar, spelling, formal tone)?</td>
+                        <td style="text-align:center;"><strong>5</strong><br><small style="color:#2e7d52;">AI feedback</small></td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="3" style="text-align:right;padding-right:20px;">TOTAL</td>
+                        <td style="text-align:center;font-size:1.1rem;color:#e67e22;">20</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="card card-purple">
+                <strong>Note on Criterion 2:</strong> The AI tool cannot see your image. Criterion 2 (GenAI Image &amp; Translanguaging) is assessed by your lecturer in person after reviewing your submitted image. This tool assesses criteria 1, 3, and 4 only (15 marks).
+            </div>
+            <div class="nav-row">
+                <button class="btn btn-dark" onclick="goTo('submit')">← Back to Submit</button>
+                <button class="btn btn-primary" onclick="goTo('alignment')">Next: Image-Text Alignment →</button>
+            </div>
+        </div>
+
+        <!-- PAGE 3: ALIGNMENT -->
+        <div class="page" id="page-alignment">
+            <h1>Image-Text Alignment</h1>
+            <h2>A core requirement of Assignment 1</h2>
+
+            <div class="card card-orange">
+                <p style="font-size:1rem;font-weight:600;color:#c9600f;margin-bottom:8px;">The central requirement:</p>
+                <p style="margin:0;font-size:0.97rem;line-height:1.8;">
+                    Your <strong>GenAI image must visually reflect your written narrative</strong>, and your <strong>written narrative must reference and describe your GenAI image and the prompt you used to generate it</strong>. These two elements must speak to each other — they are one unified submission, not two separate pieces.
+                </p>
+            </div>
+
+            <div class="align-grid">
+                <div class="align-box orange-top">
+                    <h4 style="margin-bottom:10px;color:#c9600f;">🖼 Image → Text</h4>
+                    <ul class="check-list">
+                        <li>Your image reflects your academic literacy journey theme</li>
+                        <li>Your image connects to the ideas in your narrative</li>
+                        <li>Your image is intentionally chosen — not random or decorative</li>
+                    </ul>
+                </div>
+                <div class="align-box blue-top">
+                    <h4 style="margin-bottom:10px;color:#2b6cb0;">✍️ Text → Image</h4>
+                    <ul class="check-list">
+                        <li>Your narrative includes your exact GenAI prompt</li>
+                        <li>Your prompt uses both English and your home language (translanguaging)</li>
+                        <li>Your narrative describes what the image depicts and why you chose it</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card card-red">
+                <strong>Common mistakes to avoid:</strong>
+                <ul class="cross-list" style="margin-top:10px;">
+                    <li>Using a decorative AI image with no connection to your narrative theme</li>
+                    <li>Not including your exact GenAI prompt in the Image &amp; Prompt section</li>
+                    <li>Writing your prompt in English only — translanguaging is required</li>
+                    <li>Describing the image superficially without connecting it to your learning journey</li>
+                </ul>
+            </div>
+
+            <div class="card card-purple">
+                <strong>For the Lecturer — Marking Criterion 2 (5 marks):</strong>
+                <p style="margin-top:8px;font-size:0.93rem;">Evaluate: (1) Is the image clearly AI-generated? (2) Is the prompt intentional and creative? (3) Does the image visually reflect the narrative themes? (4) Is translanguaging (English + L1) present in the prompt? (5) Does the student's text adequately reference and connect to the image?</p>
+            </div>
+
+            <div class="nav-row">
+                <button class="btn btn-dark" onclick="goTo('rubric')">← Back to Rubric</button>
+                <button class="btn btn-primary" onclick="goTo('submit')">Go to Submit Draft →</button>
+            </div>
+        </div>
+
+        <!-- PAGE 4: HISTORY -->
+        <div class="page" id="page-history">
+            <h1>Feedback History</h1>
+            <h2>Your sessions this visit</h2>
+            <div class="card card-blue" style="margin-bottom:16px;">
+                <p style="margin:0;font-size:0.93rem;">Sessions are saved in your browser for this visit only. Use <strong>Copy Feedback</strong> on the Submit tab to save a permanent record.</p>
+            </div>
+            <div id="history-container">
+                <p style="color:#6b7a8d;font-style:italic;">No feedback sessions yet. Submit a draft to get started.</p>
+            </div>
+            <div class="nav-row">
+                <button class="btn btn-primary" onclick="goTo('submit')">← Back to Submit Draft</button>
+            </div>
+        </div>
+
+    </div><!-- /main -->
+</div><!-- /container -->
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+// All AI calls go through the secure p2e.forum proxy — no API key in this file.
+// Students open this page directly in their browser (not through Blackboard).
+const PROXY_URL = 'https://p2e.forum/api/narrative-proxy';
+
+// ── SESSION HISTORY ───────────────────────────────────────────────────────────
+const sessions = [];
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function goTo(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageId).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tab = document.querySelector(`.tab[data-page="${pageId}"]`);
+    if (tab) tab.classList.add('active');
+    document.getElementById('main-content').scrollTop = 0;
+    if (pageId === 'history') renderHistory();
+}
+document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', function() { goTo(this.dataset.page); });
+});
+
+// ── WORD COUNT ────────────────────────────────────────────────────────────────
+function updateWordCount() {
+    const txt = document.getElementById('draft-text').value.trim();
+    const n = txt ? txt.split(/\s+/).length : 0;
+    const el = document.getElementById('word-count');
+    el.textContent = n + ' words';
+    el.className = 'word-count' + (n > 550 ? ' over' : n > 450 ? ' near' : n > 0 ? ' good' : '');
+}
+
+// ── CLEAR ─────────────────────────────────────────────────────────────────────
+function clearAll() {
+    document.getElementById('draft-text').value = '';
+    updateWordCount();
+    document.getElementById('feedback-area').style.display = 'none';
+    document.getElementById('error-box').style.display = 'none';
+    resetPlaceholders();
+}
+
+function resetPlaceholders() {
+    ['theme','structure','referencing'].forEach(k => {
+        const m = document.getElementById('mark-' + k);
+        if (m) { m.textContent = '— / 5'; m.className = 'mark-badge mark-orange'; }
+        const c = document.getElementById('comments-' + k);
+        if (c) c.innerHTML = '<li style="color:#a0b0c0;font-style:italic;">Analysing your draft…</li>';
+        const t = document.getElementById('tip-' + k);
+        if (t) t.style.display = 'none';
+        const tv = document.getElementById('tot-' + k);
+        if (tv) tv.textContent = '—';
+    });
+    const al = document.getElementById('alignment-comment');
+    if (al) al.innerHTML = '<em style="color:#7c3aed;">Alignment note loading…</em>';
+    const sub = document.getElementById('tot-subtotal');
+    if (sub) sub.textContent = '— / 15';
+    const ts = document.getElementById('tips-section');
+    if (ts) ts.style.display = 'none';
+}
+
+// ── ERROR ─────────────────────────────────────────────────────────────────────
+function showError(msg) {
+    const el = document.getElementById('error-box');
+    document.getElementById('error-text').textContent = msg;
+    el.style.display = 'block';
+}
+
+// ── MARK BADGE CLASS ──────────────────────────────────────────────────────────
+function markClass(mark, max) {
+    const p = mark / max;
+    return p >= 0.8 ? 'mark-green' : p >= 0.6 ? 'mark-orange' : 'mark-red';
+}
+
+// ── RENDER FEEDBACK ───────────────────────────────────────────────────────────
+function renderFeedback(data) {
+    const sections = [
+        { key: 'theme',       max: 5 },
+        { key: 'structure',   max: 5 },
+        { key: 'referencing', max: 5 },
+    ];
+
+    sections.forEach(({ key, max }) => {
+        const sec = data[key];
+        if (!sec) return;
+        const m = sec.mark;
+        const mEl = document.getElementById('mark-' + key);
+        mEl.textContent = m + ' / ' + max;
+        mEl.className = 'mark-badge ' + markClass(m, max);
+        document.getElementById('comments-' + key).innerHTML =
+            (sec.comments || []).map(c => `<li>${esc(c)}</li>`).join('');
+        document.getElementById('tot-' + key).textContent = m + ' / ' + max;
+        if (sec.tip) {
+            document.getElementById('tip-' + key + '-text').textContent = sec.tip;
+            document.getElementById('tip-' + key).style.display = 'flex';
+        }
+    });
+
+    const al = data.imageTranslanguaging;
+    if (al && al.alignmentComment) {
+        document.getElementById('alignment-comment').textContent = al.alignmentComment;
+    }
+
+    const sub = (data.theme?.mark || 0) + (data.structure?.mark || 0) + (data.referencing?.mark || 0);
+    document.getElementById('tot-subtotal').textContent = sub + ' / 15';
+
+    if (data.overallTips && data.overallTips.length) {
+        const ts = document.getElementById('tips-section');
+        document.getElementById('tips-list').innerHTML =
+            data.overallTips.map((t, i) =>
+                `<li><span class="tip-num">${i+1}</span>${esc(t)}</li>`
+            ).join('');
+        ts.style.display = 'block';
+    }
+
+    document.getElementById('fb-timestamp').textContent =
+        new Date().toLocaleString('en-ZA', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+async function submitDraft() {
+    const draft = document.getElementById('draft-text').value.trim();
+    if (!draft || draft.length < 50) {
+        showError('Please paste your full draft (at least 50 characters) before requesting feedback.');
+        return;
+    }
+    document.getElementById('error-box').style.display = 'none';
+    resetPlaceholders();
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Analysing…';
+
+    const fbArea = document.getElementById('feedback-area');
+    fbArea.style.display = 'block';
+    fbArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+        const res = await fetch(PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ draft })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Server error ' + res.status);
+        }
+
+        const json = await res.json();
+        let data;
+        try {
+            data = JSON.parse(json.feedback);
+        } catch (e) {
+            const cleaned = json.feedback.replace(/```json\n?/g,'').replace(/```/g,'').trim();
+            data = JSON.parse(cleaned);
+        }
+        renderFeedback(data);
+        sessions.unshift({ date: new Date().toLocaleString('en-ZA', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }), data });
+
+    } catch (err) {
+        fbArea.style.display = 'none';
+        showError('Error: ' + err.message + '. Please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '✦ Get Feedback';
+    }
+}
+
+// ── COPY FEEDBACK ─────────────────────────────────────────────────────────────
+function copyFeedback() {
+    const el = document.getElementById('feedback-area');
+    navigator.clipboard.writeText(el ? el.innerText : '').then(() => {
+        const btn = event.target;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = '📋 Copy Feedback', 2000);
+    });
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function renderHistory() {
+    const c = document.getElementById('history-container');
+    if (!sessions.length) {
+        c.innerHTML = '<p style="color:#6b7a8d;font-style:italic;">No feedback sessions yet. Submit a draft to get started.</p>';
+        return;
+    }
+    c.innerHTML = sessions.map((s, i) => {
+        const d = s.data;
+        const sub = (d.theme?.mark || 0) + (d.structure?.mark || 0) + (d.referencing?.mark || 0);
+        return `<details class="history-item">
+            <summary>Session ${sessions.length - i} — ${s.date} &nbsp;|&nbsp; Subtotal: ${sub}/15</summary>
+            <div class="history-body">Theme: ${d.theme?.mark ?? '—'}/5 &nbsp; Structure: ${d.structure?.mark ?? '—'}/5 &nbsp; Referencing: ${d.referencing?.mark ?? '—'}/5</div>
+        </details>`;
+    }).join('');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
