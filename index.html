@@ -67,6 +67,47 @@
         .word-count.near { color:#d97706; font-weight:600; }
         .word-count.over { color:#c0392b; font-weight:600; }
 
+        /* SECTION ASK AI */
+        .ask-ai-wrap { margin-top:12px; }
+        .ask-ai-toggle {
+            background:none; border:1.5px solid #7c3aed; color:#7c3aed;
+            border-radius:30px; padding:6px 16px; font-size:0.85rem; font-weight:600;
+            cursor:pointer; transition:all 0.15s; display:inline-flex; align-items:center; gap:6px;
+        }
+        .ask-ai-toggle:hover { background:#f3e8ff; }
+        .ask-ai-panel {
+            display:none; margin-top:10px; background:#f9f5ff;
+            border:1.5px solid #c4b5fd; border-radius:12px; padding:14px 16px;
+        }
+        .ask-ai-panel.open { display:block; animation:fadeIn 0.2s ease; }
+        .ask-ai-input-row { display:flex; gap:8px; align-items:flex-start; }
+        .ask-ai-input {
+            flex:1; padding:10px 14px; border:1.5px solid #c4b5fd; border-radius:10px;
+            font-size:0.92rem; color:#1a2a3a; background:white; resize:none;
+            font-family:'Segoe UI',Roboto,system-ui,sans-serif; line-height:1.5;
+            min-height:44px; max-height:120px;
+        }
+        .ask-ai-input:focus { outline:none; border-color:#7c3aed; }
+        .ask-ai-send {
+            background:#7c3aed; color:white; border:none; border-radius:10px;
+            padding:10px 18px; font-weight:700; font-size:0.9rem; cursor:pointer;
+            white-space:nowrap; transition:background 0.15s;
+        }
+        .ask-ai-send:hover:not(:disabled) { background:#5b21b6; }
+        .ask-ai-send:disabled { background:#a0b0c0; cursor:not-allowed; }
+        .ask-ai-history { margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+        .ask-ai-q {
+            background:#ede9fe; border-radius:10px 10px 2px 10px;
+            padding:9px 13px; font-size:0.9rem; color:#3b1f6e; font-weight:600;
+            align-self:flex-end; max-width:90%;
+        }
+        .ask-ai-a {
+            background:white; border:1px solid #c4b5fd; border-radius:2px 10px 10px 10px;
+            padding:10px 14px; font-size:0.9rem; color:#1a2a3a; line-height:1.65;
+            align-self:flex-start; max-width:95%;
+        }
+        .ask-ai-a.loading { color:#7c3aed; font-style:italic; }
+
         /* BUTTONS */
         .btn-row { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; align-items:center; }
         .btn {
@@ -285,6 +326,16 @@ AI Declaration
                             <span class="fb-tip-icon">💡</span>
                             <span class="fb-tip-text"><strong>Tip: </strong><span id="tip-theme-text"></span></span>
                         </div>
+                        <div class="ask-ai-wrap" id="ask-wrap-theme" style="display:none;">
+                            <button class="ask-ai-toggle" onclick="toggleAsk('theme')">💬 Ask about this section</button>
+                            <div class="ask-ai-panel" id="ask-panel-theme">
+                                <div class="ask-ai-input-row">
+                                    <textarea class="ask-ai-input" id="ask-input-theme" rows="2" placeholder="e.g. Why did I lose marks on theme? How can I improve my focus?"></textarea>
+                                    <button class="ask-ai-send" id="ask-send-theme" onclick="sendAsk('theme')">Ask</button>
+                                </div>
+                                <div class="ask-ai-history" id="ask-history-theme"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Criterion 2: GenAI Image & Translanguaging (Lecturer) -->
@@ -319,6 +370,16 @@ AI Declaration
                             <span class="fb-tip-icon">💡</span>
                             <span class="fb-tip-text"><strong>Tip: </strong><span id="tip-structure-text"></span></span>
                         </div>
+                        <div class="ask-ai-wrap" id="ask-wrap-structure" style="display:none;">
+                            <button class="ask-ai-toggle" onclick="toggleAsk('structure')">💬 Ask about this section</button>
+                            <div class="ask-ai-panel" id="ask-panel-structure">
+                                <div class="ask-ai-input-row">
+                                    <textarea class="ask-ai-input" id="ask-input-structure" rows="2" placeholder="e.g. What headings am I missing? How should I organise my introduction?"></textarea>
+                                    <button class="ask-ai-send" id="ask-send-structure" onclick="sendAsk('structure')">Ask</button>
+                                </div>
+                                <div class="ask-ai-history" id="ask-history-structure"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Criterion 4: Referencing & Editing -->
@@ -335,6 +396,16 @@ AI Declaration
                         <div class="fb-tip" id="tip-referencing" style="display:none;">
                             <span class="fb-tip-icon">💡</span>
                             <span class="fb-tip-text"><strong>Tip: </strong><span id="tip-referencing-text"></span></span>
+                        </div>
+                        <div class="ask-ai-wrap" id="ask-wrap-referencing" style="display:none;">
+                            <button class="ask-ai-toggle" onclick="toggleAsk('referencing')">💬 Ask about this section</button>
+                            <div class="ask-ai-panel" id="ask-panel-referencing">
+                                <div class="ask-ai-input-row">
+                                    <textarea class="ask-ai-input" id="ask-input-referencing" rows="2" placeholder="e.g. How do I fix my Harvard references? What counts as a proper in-text citation?"></textarea>
+                                    <button class="ask-ai-send" id="ask-send-referencing" onclick="sendAsk('referencing')">Ask</button>
+                                </div>
+                                <div class="ask-ai-history" id="ask-history-referencing"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -658,6 +729,10 @@ function renderFeedback(data) {
             document.getElementById('tip-' + key + '-text').textContent = sec.tip;
             document.getElementById('tip-' + key).style.display = 'flex';
         }
+        // Populate section context for Ask AI and show the button
+        sectionContext[key] = { mark: m, max, comments: sec.comments || [], tip: sec.tip || '' };
+        const askWrap = document.getElementById('ask-wrap-' + key);
+        if (askWrap) askWrap.style.display = 'block';
     });
 
     const al = data.imageTranslanguaging;
@@ -680,6 +755,101 @@ function renderFeedback(data) {
     document.getElementById('fb-timestamp').textContent =
         new Date().toLocaleString('en-ZA', { day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
 }
+
+// ── SECTION ASK AI ───────────────────────────────────────────────────────────
+const SECTION_LABELS = {
+    theme: 'Theme',
+    structure: 'Structure & Organisation',
+    referencing: 'Referencing & Editing'
+};
+
+const sectionContext = {}; // stores { mark, max, comments, tip } per section after feedback loads
+
+function toggleAsk(key) {
+    const panel = document.getElementById('ask-panel-' + key);
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+        document.getElementById('ask-input-' + key).focus();
+    }
+}
+
+async function sendAsk(key) {
+    const input = document.getElementById('ask-input-' + key);
+    const question = input.value.trim();
+    if (!question) return;
+
+    const history = document.getElementById('ask-history-' + key);
+    const sendBtn = document.getElementById('ask-send-' + key);
+
+    // Show student question
+    const qEl = document.createElement('div');
+    qEl.className = 'ask-ai-q';
+    qEl.textContent = question;
+    history.appendChild(qEl);
+
+    // Show loading
+    const aEl = document.createElement('div');
+    aEl.className = 'ask-ai-a loading';
+    aEl.textContent = 'Thinking…';
+    history.appendChild(aEl);
+    aEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    input.value = '';
+    sendBtn.disabled = true;
+
+    const ctx = sectionContext[key] || {};
+    const sectionName = SECTION_LABELS[key] || key;
+    const systemPrompt = `You are a supportive academic writing tutor for the ALL 110 course at the University of Pretoria. 
+A student has received automated feedback on their GenAI Visual Narrative assignment.
+You are helping them understand their feedback for the "${sectionName}" criterion.
+
+Criterion context:
+- Mark received: ${ctx.mark !== undefined ? ctx.mark + ' / ' + ctx.max : 'not yet available'}
+- Feedback comments: ${ctx.comments ? ctx.comments.join(' | ') : 'none'}
+- Improvement tip: ${ctx.tip || 'none'}
+
+Respond in a warm, encouraging, and academically rigorous tone. Be specific and practical. 
+If the student asks about citations, use Harvard referencing style in your examples.
+Keep your response concise (3-5 sentences) unless a detailed explanation is clearly needed.
+Do not repeat the mark or comments verbatim — add new insight, examples, or clarification.`;
+
+    try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + _k()
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o',
+                temperature: 0.5,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: question }
+                ]
+            })
+        });
+        const json = await res.json();
+        const answer = json.choices?.[0]?.message?.content || 'Sorry, I could not generate a response. Please try again.';
+        aEl.className = 'ask-ai-a';
+        aEl.textContent = answer;
+    } catch (err) {
+        aEl.className = 'ask-ai-a';
+        aEl.textContent = 'Error: ' + err.message + '. Please try again.';
+    } finally {
+        sendBtn.disabled = false;
+        aEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+// Allow Enter to send (Shift+Enter for newline)
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey && e.target.classList.contains('ask-ai-input')) {
+        e.preventDefault();
+        const key = e.target.id.replace('ask-input-', '');
+        sendAsk(key);
+    }
+});
 
 // ── SUBMIT ────────────────────────────────────────────────────────────────────
 async function submitDraft() {
