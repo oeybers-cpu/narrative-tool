@@ -353,6 +353,19 @@ AI Declaration
                         <div class="fb-alignment-note" id="alignment-comment">
                             <em style="color:#7c3aed;">Alignment note loading…</em>
                         </div>
+                        <div class="ask-ai-wrap" style="margin-top:14px;">
+                            <button class="ask-ai-toggle" style="border-color:#7c3aed;color:#7c3aed;" onclick="toggleAsk('image')">🖼️ Ask about image &amp; translanguaging</button>
+                            <div class="ask-ai-panel" id="ask-panel-image">
+                                <div style="background:#ede9fe;border-radius:8px;padding:10px 13px;margin-bottom:10px;font-size:0.88rem;color:#3b1f6e;line-height:1.6;">
+                                    <strong>💡 What this section is about:</strong> Your image must <em>look like you or reflect your life</em>, connect thematically to what you wrote, and include translanguaging — meaning your home language(s) appear meaningfully in the image or its context. Ask anything about how to improve this alignment.
+                                </div>
+                                <div class="ask-ai-input-row">
+                                    <textarea class="ask-ai-input" id="ask-input-image" rows="2" placeholder="e.g. How do I make my image reflect my narrative? What does translanguaging in an image look like? How do I write a better image prompt?"></textarea>
+                                    <button class="ask-ai-send" id="ask-send-image" onclick="sendAsk('image')">Ask</button>
+                                </div>
+                                <div class="ask-ai-history" id="ask-history-image"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Criterion 3: Structure & Organisation -->
@@ -760,7 +773,8 @@ function renderFeedback(data) {
 const SECTION_LABELS = {
     theme: 'Theme',
     structure: 'Structure & Organisation',
-    referencing: 'Referencing & Editing'
+    referencing: 'Referencing & Editing',
+    image: 'GenAI Image & Translanguaging'
 };
 
 const sectionContext = {}; // stores { mark, max, comments, tip } per section after feedback loads
@@ -799,7 +813,26 @@ async function sendAsk(key) {
 
     const ctx = sectionContext[key] || {};
     const sectionName = SECTION_LABELS[key] || key;
-    const systemPrompt = `You are a supportive academic writing tutor for the ALL 110 course at the University of Pretoria. 
+
+    let systemPrompt;
+    if (key === 'image') {
+        systemPrompt = `You are a specialist AI tutor for the ALL 110 course at the University of Pretoria, focusing on GenAI image creation and translanguaging in the context of the GenAI Visual Narrative assignment.
+
+Your role is to help students:
+1. Create images that look like them or authentically reflect their personal life, culture, and identity
+2. Align their generated image thematically with their written narrative — the image must visually echo the themes, emotions, and ideas in the text
+3. Incorporate translanguaging meaningfully — their home language(s) (e.g. isiZulu, Setswana, Sepedi, Afrikaans, isiXhosa, Sesotho) should appear in the image or its prompt in a purposeful way, not just as decoration
+4. Write effective image generation prompts that produce results reflecting their identity and narrative
+
+Key principles to guide students:
+- The image should feel personal: it could show a character who looks like the student, is set in a place they know, or depicts a moment from their story
+- Thematic alignment means: if the narrative is about language and identity, the image should visually represent that tension or journey
+- Translanguaging in an image can mean: text in a home language visible in the scene (a sign, a book, a banner), a character speaking in a speech bubble in their language, or cultural symbols that carry linguistic meaning
+- Prompt writing tip: be specific about appearance, setting, emotion, and language elements — vague prompts produce generic images
+
+Respond in a warm, encouraging, and creative tone. Give concrete, actionable advice. When relevant, suggest specific image prompt language the student could use. Keep responses focused and practical.`;
+    } else {
+        systemPrompt = `You are a supportive academic writing tutor for the ALL 110 course at the University of Pretoria. 
 A student has received automated feedback on their GenAI Visual Narrative assignment.
 You are helping them understand their feedback for the "${sectionName}" criterion.
 
@@ -812,6 +845,7 @@ Respond in a warm, encouraging, and academically rigorous tone. Be specific and 
 If the student asks about citations, use Harvard referencing style in your examples.
 Keep your response concise (3-5 sentences) unless a detailed explanation is clearly needed.
 Do not repeat the mark or comments verbatim — add new insight, examples, or clarification.`;
+    }
 
     try {
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
